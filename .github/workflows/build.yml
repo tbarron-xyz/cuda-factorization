@@ -24,6 +24,13 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
+
+      - name: checkout cuda-samples
+        uses: actions/checkout@v4
+        with:
+          repository: NVIDIA/cuda-samples
+          path: cuda-samples
+
       - uses: Jimver/cuda-toolkit@v0.2.23
         id: cuda-toolkit
         with:
@@ -37,5 +44,5 @@ jobs:
       - name: Run a multi-line script
         run: |
           mkdir bin
-          nvcc ./memofactorize.cu -DDIM=8 -DMEMO_DIM=4 -o bin/memofactorize8_4 -allow-unsupported-compiler -I ../../../Common/
+          nvcc ./memofactorize.cu -DDIM=8 -DMEMO_DIM=4 -o bin/memofactorize8_4 -allow-unsupported-compiler -I ./cuda-samples/Common/
 
