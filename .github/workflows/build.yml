@@ -35,7 +35,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.5.0'
-          use-github-cache: false
+          # use-github-cache: false
           use-local-cache: false
 
       - name: Make build script executable
