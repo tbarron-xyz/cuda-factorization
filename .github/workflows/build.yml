@@ -35,6 +35,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.5.0'
+          use-github-cache: false
 
       - name: Make build script executable
         run: chmod +x build.sh
