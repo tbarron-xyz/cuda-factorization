@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bound-Splitting and Next-Candidate Demo</title>
+</head>
+<body>
+<h1>Bound-Splitting and Next-Candidate Demo</h1>
+<p>This page demonstrates the bound-splitting and next-candidate algorithms from the <a href="https://github.com/tbarron-xyz/cuda-factorization">cuda-factorization GitHub repository</a>, which implements GPU kernels for parallel factorization enumeration in numerical semigroups.</p>
+<h2>How to Use</h2>
+<p>Enter the element to factorize and the 5 generators (g1 to g5). Click "Start Lexicographic Enumeration" to begin with one worker that searches from the initial candidate down to the lower bound [0,0,0,0,0].</p>
+<p>Each worker displays its lower bound, current candidate, and finished status. Click "Split" on an active worker to create a new worker with a tighter lower bound, allowing parallel enumeration.</p>
+<p>Click "Next Candidate" to advance all active workers to their next lexicographic candidate.</p>
+<p>Valid factorizations (where the sum matches the element) are collected and listed below.</p>
+<p>The "Finished" indicator shows true when all workers have reached their lower bounds.</p>
+<label>Element: <input type="number" id="element" value="1500"></label><br>
+<label>G1: <input type="number" id="g1" value="13"></label>
+<label>G2: <input type="number" id="g2" value="36"></label>
+<label>G3: <input type="number" id="g3" value="37"></label>
+<label>G4: <input type="number" id="g4" value="38"></label>
+<label>G5: <input type="number" id="g5" value="39"></label><br>
+<button id="start">Start Lexicographic Enumeration</button><br>
+<div id="workers"></div>
+<button id="nextCandidate">Next Candidate</button>
+<button id="splitWork">Split work (from first worker to any finished)</button><br>
+<div>Finished: <span id="finished">false</span></div>
+<div id="factorizations"></div>
+<script>
+const DIM = 5;
+
+function copyFac(f) { return f.slice(); }
+
+function isAllZeroes(f) { return f.every(x => x === 0); }
+
+function lexicogLeq(a, b) {
+  for (let i = 0; i < DIM; i++) {
+    if (a[i] < b[i]) return true;
+    if (a[i] > b[i]) return false;
+  }
+  return true;
+}
+
+function phi(f, g) {
+  let sum = 0;
+  for (let i = 0; i < DIM; i++) {
+    sum += f[i] * g[i];
+  }
+  return sum;
+}
+
+function nextCandidate(current, generators, lowerBound, element) {
+  let a = copyFac(current);
+  let i = -1;
+  for (let j = 0; j < DIM - 1; j++) {
+    if (a[j] > 0) i = j;
+  }
+  if (i === -1) {
+    return { candidate: current, valid: false, endOfStream: true };
+  }
+  a[i]--;
+  a[DIM - 1] = 0;
+  let phiResult = phi(a, generators);
+  let p = element - phiResult;
+  let nextGen = generators[i + 1];
+  let m = Math.floor((p + nextGen - 1) / nextGen);
+  let result = m * nextGen + phiResult;
+  a[i + 1] = m;
+  let wasValid = (result === element);
+  if (lexicogLeq(a, lowerBound)) {
+    return { candidate: a, valid: wasValid, endOfStream: true };
+  }
+  return { candidate: a, valid: wasValid, endOfStream: false };
+}
+
+function newBound(lastCandidate, lowerBound, generators, element) {
+  let l = lastCandidate;
+  let b = lowerBound;
+  let g = generators;
+  let j = -1;
+  for (let tempJ = 0; tempJ < DIM - 1; tempJ++) {
+    if (l[tempJ] > 0 && l[tempJ] != b[tempJ]) {
+      j = tempJ;
+      break;
+    }
+  }
+  if (j === -1) return null;
+  let nB = copyFac(l);
+  nB[j]--;
+  for (let k = j + 1; k < DIM; k++) {
+    nB[k] = 0;
+  }
+  let dividend = element - phi(nB, g);
+  let nextGen = g[j + 1];
+  let quotient = Math.floor(dividend / nextGen);
+  let r = dividend - quotient * nextGen;
+  let wasValid = (r === 0);
+  if (!wasValid) {
+    quotient++;
+  }
+  nB[j + 1] = quotient;
+  if (lexicogLeq(nB, b)) {
+    return null;
+  }
+  return { bound: nB, valid: wasValid };
+}
+
+let workers = [];
+let factorizations = [];
+let generators = [];
+let element = 0;
+
+document.getElementById('start').addEventListener('click', () => {
+  element = +document.getElementById('element').value;
+  generators = [
+    +document.getElementById('g1').value,
+    +document.getElementById('g2').value,
+    +document.getElementById('g3').value,
+    +document.getElementById('g4').value,
+    +document.getElementById('g5').value
+  ];
+  let initialCandidate = [Math.floor((element + generators[0] - 1) / generators[0]), 0, 0, 0, 0];
+  workers = [{
+    lowerBound: [0, 0, 0, 0, 0],
+    currentCandidate: initialCandidate,
+    endOfStream: false
+  }];
+  factorizations = [];
+  if (phi(initialCandidate, generators) === element) {
+    factorizations.push(copyFac(initialCandidate));
+  }
+  updateDisplay();
+});
+
+function updateDisplay() {
+  let workersDiv = document.getElementById('workers');
+  workersDiv.innerHTML = '';
+  workers.forEach((w, idx) => {
+    let div = document.createElement('div');
+    div.innerHTML = `Worker ${idx}: Lower Bound: [${w.lowerBound.join(',')}], Current: [${w.currentCandidate.join(',')}], Finished: ${w.endOfStream} <button onclick="splitWorker(${idx})">Split</button>`;
+    workersDiv.appendChild(div);
+  });
+  document.getElementById('finished').textContent = workers.every(w => w.endOfStream);
+  let facDiv = document.getElementById('factorizations');
+  facDiv.innerHTML = '<h2>Valid Factorizations</h2>' + factorizations.map(f => `[${f.join(',')}]`).join('<br>');
+}
+
+function splitWorker(idx) {
+  let w = workers[idx];
+  if (w.endOfStream) return;
+  let newBoundData = newBound(w.currentCandidate, w.lowerBound, generators, element);
+  if (newBoundData) {
+    let newWorker = {
+      lowerBound: newBoundData.bound,
+      currentCandidate: copyFac(w.currentCandidate),
+      endOfStream: false
+    };
+    workers.push(newWorker);
+    w.currentCandidate = copyFac(newBoundData.bound);
+    if (newBoundData.valid) {
+      factorizations.push(copyFac(newBoundData.bound));
+    }
+  }
+  updateDisplay();
+}
+
+document.getElementById('nextCandidate').addEventListener('click', () => {
+  workers.forEach(w => {
+    if (!w.endOfStream) {
+      let next = nextCandidate(w.currentCandidate, generators, w.lowerBound, element);
+      if (next.endOfStream) {
+        w.endOfStream = true;
+      }
+      w.currentCandidate = next.candidate;
+      if (next.valid) {
+        factorizations.push(copyFac(next.candidate));
+      }
+    }
+  });
+  updateDisplay();
+});
+
+document.getElementById('splitWork').addEventListener('click', () => {
+  if (workers.length === 0) return;
+  let firstWorker = workers[0];
+  workers.forEach(w => {
+    if (w.endOfStream) {
+      let newBoundData = newBound(firstWorker.currentCandidate, firstWorker.lowerBound, generators, element);
+      if (newBoundData) {
+        w.currentCandidate = copyFac(firstWorker.currentCandidate);
+        w.lowerBound = newBoundData.bound;
+        w.endOfStream = false;
+        firstWorker.currentCandidate = copyFac(newBoundData.bound);
+        if (newBoundData.valid) {
+          factorizations.push(copyFac(newBoundData.bound));
+        }
+      }
+    }
+  });
+  updateDisplay();
+});
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ This project implements a CUDA-accelerated algorithm for computing all possible 
 ## Project Structure
 
 - `memofactorize.cu`: The main CUDA source file containing the factorization algorithm, memoization logic, and GPU kernel implementations.
+- `index.html`: Interactive HTML demo showcasing the bound-splitting and next-candidate algorithms in a web browser.
 - `.github/workflows/build.yml`: GitHub Actions workflow for automated building and testing of the project.
 - `runmemo.all.bat`: Windows batch script that compiles multiple variants of the program with different dimension and memoization settings, then runs benchmarks on various input sizes.
 - `runmemo.one.bat`: Windows batch script that compiles and runs the default configuration of the program.
