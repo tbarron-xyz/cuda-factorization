@@ -10,9 +10,14 @@ This project implements a CUDA-accelerated algorithm for computing all possible 
 
 ## Project Structure
 
-- `memofactorize.cu`: The main CUDA source file containing the factorization algorithm, memoization logic, and GPU kernel implementations.
+- `types.h`: Type definitions, constants, and data structures used throughout the project.
+- `utils.cu`: Utility functions for host and device operations (copying, comparison, printing, etc.).
+- `memo.cu`: Memoization logic and dynamic programming implementation for precomputing factorizations.
+- `kernels.cu`: CUDA kernels and device functions for parallel factorization computation.
+- `factorize.cu`: Main computation orchestration, memory management, and high-level algorithm flow.
+- `main.cu`: Entry point and command-line argument handling.
 - `index.html`: Interactive HTML demo showcasing the bound-splitting and next-candidate algorithms in a web browser.
-- `.github/workflows/build.yml`: GitHub Actions workflow for automated building and testing of the project.
+- `.github/workflows/build.yml`: GitHub Actions workflow for automated building and testing of project.
 - `runmemo.all.bat`: Windows batch script that compiles multiple variants of the program with different dimension and memoization settings, then runs benchmarks on various input sizes.
 - `runmemo.one.bat`: Windows batch script that compiles and runs the default configuration of the program.
 
@@ -44,22 +49,22 @@ The algorithm is particularly suited for computational number theory application
 To build the default configuration (DIM=8, MEMO_DIM=4):
 ```bash
 mkdir bin
-nvcc ./memofactorize.cu -DDIM=8 -DMEMO_DIM=4 -o bin/memofactorize8_4 -allow-unsupported-compiler -I ./cuda-samples/Common/
+nvcc *.cu -DDIM=8 -DMEMO_DIM=4 -o bin/factorize8_4 -allow-unsupported-compiler -I ./cuda-samples/Common/
 ```
 
-For other configurations, adjust the `-DDIM` and `-DMEMO_DIM` defines as needed (see `runmemo.all.bat` for examples).
+For other configurations, adjust the `-DDIM` and `-DMEMO_DIM` defines as needed (see `runmemo.all.bat` for examples). The build process compiles all `.cu` files together, linking the modular components.
 
 ### Running
 Execute the compiled binary with the target number and optional generator values:
 ```bash
-./bin/memofactorize8_4 [element] [gen1] [gen2] ... [gen8]
+./bin/factorize8_4 [element] [gen1] [gen2] ... [gen8]
 ```
 
 If no arguments are provided, it uses default values (element=1500, generators based on DIM).
 
 Example:
 ```bash
-./bin/memofactorize8_4 1000 13 36 37 38 39 40 41 42
+./bin/factorize8_4 1000 13 36 37 38 39 40 41 42
 ```
 
 The program outputs factorization results, performance metrics, and appends timing data to `runtimes.csv`.
